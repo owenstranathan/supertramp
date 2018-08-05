@@ -52,7 +52,8 @@ Examples:
 function parse_args() {
     MAKE_COMMANDS=()
     ENV_FILES=()
-    while getopts ":cb:e:l:m:" option; do
+    REVISION="HEAD"
+    while getopts ":cb:e:l:m:r:" option; do
         case $option in 
             b) # Branch
                 BRANCH="$OPTARG"
@@ -64,7 +65,7 @@ function parse_args() {
                 SAVE_IFS=$IFS
                 IFS=','
                 for env_file in $OPTARG; do
-                    ENV_FILES+=("env_file")
+                    ENV_FILES+=("$env_file")
                 done
                 IFS=$SAVE_IFS
                 ;;
@@ -78,6 +79,9 @@ function parse_args() {
                 MAKE_COMMANDS+=("$command")
                 done
                 IFS=$SAVE_IFS
+                ;;
+            r)
+                REVISION="$OPTARG"
                 ;;
             *)
                 usage
@@ -152,13 +156,8 @@ function main() {
             do_clone
         else
             if [[ -d "$DIR/.git" ]]; then
-                git -C "$DIR" reset --hard HEAD 
-                if git -C "$DIR" pull --rebase; then
-                    do_checkout
-                else
-                    errcho "Failed to pull from upstream"
-                    exit 1
-                fi
+                git -C "$DIR" reset --hard HEAD
+                do_checkout
             else
                 do_clone
             fi
@@ -167,8 +166,10 @@ function main() {
         do_checkout
     fi
 
-    load_env_file "$DIR/.env"
+    git -C "$DIR" pull --rebase;
+    git -C "$DIR" reset --hard "$REVISION"
 
+    load_env_file "$DIR/.env"
     for ENV_FILE in "${ENV_FILES[@]}"; do
         load_env_file "$ENV_FILE"
     done
