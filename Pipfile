@@ -13,7 +13,6 @@ pylint = "*"
 
 [packages]
 flask = "*"
-"jinja2" = "*"
 redis-types = "*"
 celery = "*"
 
