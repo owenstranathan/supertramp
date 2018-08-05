@@ -101,7 +101,16 @@ function main() {
             fi
         else
             if [[ -d "$DIR" ]]; then
-                git pull --work-tree="$DIR" --rebase
+                git reset --hard HEAD --work-tree="$DIR"
+                if git pull --work-tree="$DIR" --rebase; then
+                    if [[ "$BRANCH" ]]; then
+                        git clone -b "$BRANCH" "$SOURCE" "$DIR"
+                    else
+                        git clone "$SOURCE" "$DIR"
+                    fi
+                else
+                    errcho "Failed to pull from upstream"
+                fi
             fi
             # TODO check if cached directory exists and try to pull
         fi
