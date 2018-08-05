@@ -2,6 +2,16 @@
 
 readonly PROGNAME="$(basename "$0")"
 
+case "$OSTYPE" in
+    *darwin*)
+        BSD=1
+        ;;
+    *linux*)
+        GNU=2
+        ;;
+esac
+
+
 [[ $TRACE ]] && set -x
 
 function errcho() {
@@ -9,7 +19,7 @@ function errcho() {
 }
 
 function usage() {
-    errcho -e "$PROGNAME [bduclm] <source>
+    errcho -e "$PROGNAME [bcelm] <source>
 
 <source>
     either a url to a remote git repo or a path to a local git repo
@@ -21,13 +31,16 @@ Options
         use caching (clones the repo to a permanent cache directory 
         /tmp/supertramp/cache), use this option to speed up supsequent builds
 
-    -b[<branch>]
+    -b [<branch>]
         checkout the remote at source at <branch>
+    
+    -e [<env_file1>,<env_file2>,...<env_fileN>]
+        load the contents of these env files into memory before executing commands
 
-    -l[<log-path>]
+    -l [<log-path>]
         store output of make commands to <log-path>
 
-    -m[<command1>,<command2>,...,<commandn>]
+    -m [<command1>,<command2>,...,<commandN>]
         extra make commands to run 
 
 Examples:
@@ -38,6 +51,7 @@ Examples:
 
 function parse_args() {
     MAKE_COMMANDS=()
+    ENV_FILES=()
     while getopts ":cb:e:l:m:" option; do
         case $option in 
             b) # Branch
@@ -47,7 +61,12 @@ function parse_args() {
                 CACHE_SOURCE=true
                 ;;
             e) # Env file
-                ENV_FILE="$OPTARG"
+                SAVE_IFS=$IFS
+                IFS=','
+                for env_file in $OPTARG; do
+                    ENV_FILES+=("env_file")
+                done
+                IFS=$SAVE_IFS
                 ;;
             l) # Log
                 LOG_PATH="$OPTARG"
@@ -62,15 +81,46 @@ function parse_args() {
                 ;;
             *)
                 usage
+                exit 1
                 ;;
         esac
     done
     shift $((OPTIND-1))
     if [[ ! "$1" ]]; then
-        errcho -e "$usage"
+        usage
         exit 1
     fi
     SOURCE="$1"
+}
+
+function do_clone() {
+    if [[ "$BRANCH" ]]; then
+        git clone -b "$BRANCH" "$SOURCE" "$DIR"
+    else
+        git clone "$SOURCE" "$DIR"
+    fi
+}
+
+function do_checkout() {
+    if [[ "$BRANCH" ]]; then
+        git -C "$DIR" checkout "$BRANCH"
+    fi
+}
+
+function load_env_file() {
+    local env_file="$1"
+    if [[ -f "$env_file" ]]; then
+        echo "Loading $env_file environment variables"
+        local variables
+        if [[ "$BSD" ]]; then
+            variables=$(grep -v '^#' "$env_file" | xargs -0)
+        else
+            variables=$(grep -v '^#' "$env_file" | xargs -d '\n')
+        fi
+        for var in $variables; do
+            export "${var?}"
+        done
+    fi
 }
 
 function main() {
@@ -81,8 +131,13 @@ function main() {
         if [[ ! $CACHE_SOURCE ]]; then
             DIR="$(mktemp -d)"
             trap "rm -rf $DIR" INT TERM EXIT
+            echo "Using temporary directory $DIR."
+            echo "It will be deleted when I'm done (use -c to use caching)" 
         else
             DIR="/tmp/supertramp/$SOURCE_NAME"
+            if [ -d "$DIR" ]; then
+                echo "Using cached $DIR"
+            fi
             mkdir -p "$DIR"
         fi
     elif [ -d "$SOURCE" ]; then
@@ -94,45 +149,33 @@ function main() {
 
     if [[ "$REMOTE" == true ]]; then
         if [[ ! "$CACHE_SOURCE" ]]; then
-            if [[ "$BRANCH" ]]; then
-                git clone -b "$BRANCH" "$SOURCE" "$DIR"
-            else
-                git clone "$SOURCE" "$DIR"
-            fi
+            do_clone
         else
-            if [[ -d "$DIR" ]]; then
-                git reset --hard HEAD --work-tree="$DIR"
-                if git pull --work-tree="$DIR" --rebase; then
-                    if [[ "$BRANCH" ]]; then
-                        git clone -b "$BRANCH" "$SOURCE" "$DIR"
-                    else
-                        git clone "$SOURCE" "$DIR"
-                    fi
+            if [[ -d "$DIR/.git" ]]; then
+                git -C "$DIR" reset --hard HEAD 
+                if git -C "$DIR" pull --rebase; then
+                    do_checkout
                 else
                     errcho "Failed to pull from upstream"
+                    exit 1
                 fi
+            else
+                do_clone
             fi
-            # TODO check if cached directory exists and try to pull
         fi
     else
-        if [[ "$BRANCH" ]]; then
-            git --work-tree="$DIR" checkout "$BRANCH"
-        fi
+        do_checkout
     fi
 
-    if [ -f "$DIR/.env" ]; then
-        echo "Detected .env environment variables"
-        echo "Loading .env environment variables"
-        export "$(grep -v '^#' "$dir/.env" | xargs)"
-    elif [[ -f $ENV_FILE ]]; then
-        echo "Loading $ENV_FILE environment variables"
-        export "$(grep -v '^#' "$ENV_FILE" | xargs)"
-    fi
+    load_env_file "$DIR/.env"
+
+    for ENV_FILE in "${ENV_FILES[@]}"; do
+        load_env_file "$ENV_FILE"
+    done
 
     for COMMAND in "${MAKE_COMMANDS[@]}"; do
         make "$COMMAND" -C "$DIR"
     done
-
 }
 
 parse_args "$@"    

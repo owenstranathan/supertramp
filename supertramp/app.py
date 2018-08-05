@@ -16,9 +16,6 @@ from supertramp.utils import (
     run,
     sha1,
     build_log_path_for,
-    clone_repo,
-    build_project,
-    tell_slack
 )
 
 
@@ -56,19 +53,9 @@ def _build(payload):
     ref: str = payload['ref']
     branch: str = ref.split('/')[-1]
     log_path: Path = build_log_path_for(project_name, commit_id)
-    with TemporaryDirectory() as tmpd:
-        try:
-            clone_repo(repo_url, tmpd, branch, log_path=log_path)
-            build_project(tmpd, log_path)
-            payload['build'] = {
-                'success': True,
-                'log': url_for('build_logs', project_name=project_name, commit_id=commit_id)
-            }
-            tell_slack(payload)
-        except Exception as ex:
-            breakpoint()
-            print(ex)
-            raise ex
+    
+    # TODO: lookup project environment configuration (use redis probably)
+    run(["supertramp", "-cb", branch, "-l", log_path, ])
 
 if __name__ == "__main__":
     app.run()
