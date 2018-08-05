@@ -55,7 +55,15 @@ def _build(payload):
     log_path: Path = build_log_path_for(project_name, commit_id)
     
     # TODO: lookup project environment configuration (use redis probably)
-    run(["supertramp", "-cb", branch, "-l", log_path, ])
+    run(["supertramp", "-cb", branch,
+         "-l", log_path,
+         "-r", commit_id, 
+         "-m", "build", repo_url])
+
+def _deploy(payload):
+    # TODO: deploy things, use a redis to get shit and stuff
+    pass
+
 
 if __name__ == "__main__":
     app.run()

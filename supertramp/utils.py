@@ -2,7 +2,11 @@
 Utilities for the project
 """
 import logging
-from typing import List
+from typing import (
+    List,
+    Dict,
+    Any
+)
 from pathlib import Path
 import subprocess
 import hashlib
@@ -14,6 +18,19 @@ from supertramp.settings import(
 logger = logging.getLogger(__name__)
 
 build_logs_directory: Path = Path(BUILD_LOGS_DIR)
+
+
+def parse_git_payload(payload: Dict[str, Any]) -> Dict[str, str]:
+    project_name: str = payload['repository']['full_name']
+    commit_id:str = payload['head_commit']['id']
+    ref: str = payload['ref']
+    return {
+        "project_name": project_name,
+        "commit_id": commit_id,
+        "repo_url": payload['repository']['url'],
+        "branch": ref.split('/')[-1],
+        "log_path": build_log_path_for(project_name, commit_id)
+    }
 
 
 def run(args: List[str], log_path: Path = None, cwd: str=None) -> subprocess.CompletedProcess:
