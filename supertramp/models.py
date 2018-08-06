@@ -14,7 +14,8 @@ from walrus import (
     Database,
     Model,
     TextField,
-    DateTimeField
+    DateTimeField,
+    JSONField
 )
 
 from .settings import log_base
@@ -50,6 +51,7 @@ class Project(CustomModel):
     id = TextField(primary_key=True)
     url = TextField(index=True)
     creation_date = DateTimeField(index=True, default=datetime.datetime.now)
+    secrets = JSONField(default={})
 
     def __init__(self, *args, **kwargs) -> None:
         kwargs['id'] = project_id(kwargs['org'], kwargs['name'])
@@ -117,6 +119,13 @@ class Build(CustomModel):
         return self.project.log_path / "builds" / self.id
     
     @property
+    def logs(self) -> str:
+        """
+        Reads the contents of a build log
+        """
+        return self.log_path.open().read()
+
+    @property
     def deploys(self) -> Any:
         """
         Returns a list of Deploys for this build ordered by their creation_date
@@ -156,6 +165,3 @@ class Deploy(CustomModel):
         """
         return self.project.log_path / "deploys" / self.id
     
-
-class Settings(CustomModel):
-    pass

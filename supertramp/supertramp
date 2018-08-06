@@ -157,18 +157,21 @@ function main() {
         if [[ ! "$CACHE_SOURCE" ]]; then
             do_clone
         else
-            if [[ -d "$DIR/.git" ]]; then
-                git -C "$DIR" reset --hard HEAD
-                do_checkout
-            else
-                do_clone
-            fi
+            # if [[ -d "$DIR/.git" ]]; then
+                # git -C "$DIR" reset --hard HEAD
+                # git -C "$DIR" pull --rebase;
+            do_checkout
+            # else
+            #  do_clone
+            # fi
         fi
     else
         do_checkout
     fi
 
+    echo "Making sure $DIR is up to date"
     git -C "$DIR" pull --rebase;
+    echo "Setting source to revision $REVISION"
     git -C "$DIR" reset --hard "$REVISION"
 
     load_env_file "$DIR/.env"
@@ -176,8 +179,12 @@ function main() {
     for ENV_FILE in "${ENV_FILES[@]}"; do
         load_env_file "$ENV_FILE"
     done
+    echo "Running make commands"
+    if [[ ! "$MAKE_COMMANDS" ]]; then
+        echo "No commands provided, nothing to do"
+        exit 1
+    fi
     set -u
-
     for COMMAND in "${MAKE_COMMANDS[@]}"; do
         make "$COMMAND" -C "$DIR"
     done

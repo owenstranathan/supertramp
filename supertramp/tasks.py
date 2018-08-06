@@ -1,5 +1,6 @@
 import subprocess
 import logging
+from typing import List
 
 from celery import Celery
 
@@ -21,11 +22,22 @@ from .settings import (
     celery_conf,
     make_logging
 )
+from .listeners import (
+    Listener,
+    SlackListener
+)
 
 make_logging()
 logger = logging.getLogger(__name__)
 
 celery = Celery(__name__, **celery_conf)
+
+event_listeners: List[Listener] = [
+    SlackListener(),
+]
+
+for listener in event_listeners:
+    BuildCompletedEvent.subscribe(listener)
 
 
 @celery.task(name=f"{__name__}.build")
@@ -45,7 +57,7 @@ def build(payload):
         build = Build.create(project_id=project.id, commit_id=commit_id, branch=branch)
 
     try:
-        run(["supertramp", "-cb", branch,
+        proc = run(["supertramp", "-cb", branch,
                     "-l", str(build.log_path),
                     "-r", commit_id, 
                     "-m", "build", project.url])
@@ -55,7 +67,7 @@ def build(payload):
         logger.exception(ex)
         logger.error(f"Build {build.id}({project.full_name}@{build.branch}/{build.commit_id}) failed")
         success: bool = False
-
+    print(' '.join(proc.args))
     BuildCompletedEvent(build=build, succeeded=success).emit()
 
 

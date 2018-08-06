@@ -26,6 +26,11 @@ celery_conf: dict = {
     'backend': redis_url
 }
 
+# Slack
+slack: dict = {
+    'api_token': os.environ.get('SLACK_API_TOKEN')
+}
+
 # Logging
 log_conf = {
     'version': 1,

@@ -51,7 +51,7 @@ def build_id(project_id: str, commit_id: str) -> str:
 
 
 def deploy_id(project_id: str, build_id: str) -> str:
-    return sha1(f"{project_id}{build_id}")
+    return sha1(f"{project_id}/{build_id}")
 
 
 def make_app():

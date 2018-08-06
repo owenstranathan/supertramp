@@ -9,6 +9,8 @@ class TestModels(unittest.TestCase):
         """Set up the test case"""
         self.project = Project.create(name="kupy-test", org="owenstranathan",
                                       url="https://github.com/owenstranathan/kupy-test")
+        self.project.secrets['SECRET_TOKEN'] = '12345'
+        self.project.save()
         self.commit_id = "a29u9ufcuoi3u9r0aucisdjlk"
         self.build = Build.create(project_id=self.project.id, commit_id=self.commit_id, branch="develop")
         self.deploy = Deploy.create(project_id=self.project.id, build_id=self.build.id)
@@ -18,15 +20,16 @@ class TestModels(unittest.TestCase):
         full_name = "owenstranathan/kupy-test"
         self.assertEqual(full_name, self.project.full_name)
         self.assertEqual(sha1(full_name), self.project.id)
-        self.assertEqual(list(self.project.builds), [self.build])
-        self.assertEqual(list(self.project.deploys), [self.deploy])
+        self.assertEqual('12345', self.project.secrets['SECRET_TOKEN'])
+        self.assertIn(self.build, list(self.project.builds))
+        self.assertIn(self.deploy, list(self.project.deploys))
 
         build_id = sha1(f"{self.project.id}/{self.commit_id}")
         self.assertEqual(self.build.id, build_id)
         self.assertEqual(self.build.branch, "develop")
         self.assertEqual(self.build.commit_id, self.commit_id)
         self.assertEqual(self.build.project, self.project)
-        self.assertEqual(list(self.build.deploys), [self.deploy])
+        self.assertIn(self.deploy, list(self.build.deploys))
 
         deploy_id = sha1(f"{self.project.id}/{self.build.id}")
         self.assertEqual(deploy_id, self.deploy.id)
