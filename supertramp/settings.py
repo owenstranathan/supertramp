@@ -1,28 +1,52 @@
 """
 Setting and constants for project
 """
+import sys
 import os
-from celery import Celery
+from logging.config import dictConfig
+from pathlib import Path
 
+# Constants
+log_base: Path = Path(os.environ.get('LOG_BASE'))  # type: ignore
 
-BUILD_LOGS_DIR = os.environ.get('BUILD_LOGS_DIR')
+# Redis
+redis: dict = {
+    'host': os.environ.get('REDIS_HOST'),
+    'port': int(os.environ.get('REDIS_PORT')),  # type: ignore
+}
 
-CELERY_BROKER_URL = "redis://localhost:6379"
-CELERY_RESULT_BACKEND = "redis://localhost:6379"
+redis_url: str = f"redis://{redis['host']}:{redis['port']}"
 
+# App
+app_conf: dict = {}
 
-def make_celery(app):
-    celery = Celery(
-        app.import_name,
-        backend=app.config['CELERY_RESULT_BACKEND'],
-        broker=app.config['CELERY_BROKER_URL']
-    )
-    celery.conf.update(app.config)
+# Celery
+celery_conf: dict = {
+    'broker': redis_url,
+    'backend': redis_url
+}
 
-    class ContextTask(celery.Task):
-        def __call__(self, *args, **kwargs):
-            with app.app_context():
-                return self.run(*args, **kwargs)
+# Logging
+log_conf = {
+    'version': 1,
+    'formatters': {
+        'standard': {
+            'format': "[%(levelname)s] <%(name)s>: %(message)s",
+        },
+    },
+    'handlers': {
+        'stdout': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+            'stream': sys.stdout,
+        },
+    },
+    'root': {
+        'handlers': ['stdout'],
+        'level': 'DEBUG',
+    }
+}
 
-    celery.Task = ContextTask
-    return celery
+def make_logging():
+    dictConfig(log_conf)

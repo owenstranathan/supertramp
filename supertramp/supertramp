@@ -1,18 +1,20 @@
 #!/bin/bash
 
+[[ $TRACE ]] && set -x
+
 readonly PROGNAME="$(basename "$0")"
+
+set -euo pipefail
 
 case "$OSTYPE" in
     *darwin*)
         BSD=1
         ;;
     *linux*)
-        GNU=2
+        GNU=1
         ;;
 esac
 
-
-[[ $TRACE ]] && set -x
 
 function errcho() {
     echo "$@" >&2
@@ -129,7 +131,6 @@ function load_env_file() {
 
 function main() {
     SOURCE_NAME="$(basename "$SOURCE")"
-
     if [[ "$SOURCE" =~ (git@|http:\/\/|https:\/\/)(github.com)(:|\/)(.*)(\/)(.*).?($|git$)? ]]; then
         REMOTE=true
         if [[ ! $CACHE_SOURCE ]]; then
@@ -145,6 +146,7 @@ function main() {
             mkdir -p "$DIR"
         fi
     elif [ -d "$SOURCE" ]; then
+        DIR="$SOURCE"
         REMOTE=false
     else
         errcho "Invalid source!"
@@ -170,9 +172,11 @@ function main() {
     git -C "$DIR" reset --hard "$REVISION"
 
     load_env_file "$DIR/.env"
+    set +u  # using ARR[@] creates an unbound variable when ARR == ()
     for ENV_FILE in "${ENV_FILES[@]}"; do
         load_env_file "$ENV_FILE"
     done
+    set -u
 
     for COMMAND in "${MAKE_COMMANDS[@]}"; do
         make "$COMMAND" -C "$DIR"
@@ -181,6 +185,7 @@ function main() {
 
 parse_args "$@"    
 if [[ "$LOG_PATH" ]]; then
+    mkdir -p "$(dirname "$LOG_PATH")"
     main 2>&1 | tee "$LOG_PATH"
 else
     main

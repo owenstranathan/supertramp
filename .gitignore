@@ -1,4 +1,7 @@
 .env
 *.log
 .vscode/
-build_logs/
+.mypy_cache/
+.pytest_cache/
+dump.rdb
+logs/

@@ -10,14 +10,18 @@ name = "appfigures"
 
 [dev-packages]
 pylint = "*"
+mypy = "*"
+pytest = "*"
 
 [packages]
 flask = "*"
 redis-types = "*"
-celery = "*"
+walrus = "*"
+celery = {git = "https://github.com/celery/celery.git", ref = "HEAD"}
 
 [requires]
 python_version = "3.7"
 
 [scripts]
-start = "python -m supertramp.app"
+flask = "flask run"
+celery = "celery -A supertramp.celery worker -E"
